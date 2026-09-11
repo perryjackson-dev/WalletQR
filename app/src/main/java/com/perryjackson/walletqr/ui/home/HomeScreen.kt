@@ -1,11 +1,16 @@
 package com.perryjackson.walletqr.ui.home
 
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -14,9 +19,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.perryjackson.walletqr.ui.generate.QrCodeGenerator
 import com.perryjackson.walletqr.ui.scan.GoogleCodeScannerLauncher
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -24,6 +31,9 @@ import com.perryjackson.walletqr.ui.scan.GoogleCodeScannerLauncher
 fun HomeScreen() {
     var scannedValue by remember { mutableStateOf<String?>(null) }
     var scanError by remember { mutableStateOf<String?>(null) }
+    var qrText by remember { mutableStateOf("") }
+    var generatedQrCode by remember { mutableStateOf<Bitmap?>(null) }
+    var generationError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val scannerLauncher = remember(context) {
         GoogleCodeScannerLauncher(context)
@@ -40,6 +50,9 @@ fun HomeScreen() {
             contentPadding = contentPadding,
             scannedValue = scannedValue,
             scanError = scanError,
+            qrText = qrText,
+            generatedQrCode = generatedQrCode,
+            generationError = generationError,
             onScanCode = {
                 scannerLauncher.startScan(
                     onScanned = { rawValue ->
@@ -50,6 +63,20 @@ fun HomeScreen() {
                         scanError = "Unable to scan code."
                     }
                 )
+            },
+            onQrTextChanged = { text ->
+                qrText = text
+                generatedQrCode = null
+                generationError = null
+            },
+            onGenerateQrCode = {
+                val qrCode = QrCodeGenerator.generate(qrText)
+                generatedQrCode = qrCode
+                generationError = if (qrCode == null) {
+                    "Unable to generate QR code."
+                } else {
+                    null
+                }
             }
         )
     }
@@ -60,7 +87,12 @@ private fun HomeContent(
     contentPadding: PaddingValues,
     scannedValue: String?,
     scanError: String?,
-    onScanCode: () -> Unit
+    qrText: String,
+    generatedQrCode: Bitmap?,
+    generationError: String?,
+    onScanCode: () -> Unit,
+    onQrTextChanged: (String) -> Unit,
+    onGenerateQrCode: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -82,6 +114,36 @@ private fun HomeContent(
             )
         }
         scanError?.let { errorMessage ->
+            Text(
+                text = errorMessage,
+                modifier = Modifier.padding(top = 16.dp)
+            )
+        }
+        OutlinedTextField(
+            value = qrText,
+            onValueChange = onQrTextChanged,
+            label = { Text("Text") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 24.dp)
+        )
+        Button(
+            onClick = onGenerateQrCode,
+            enabled = qrText.isNotBlank(),
+            modifier = Modifier.padding(top = 16.dp)
+        ) {
+            Text("Generate")
+        }
+        generatedQrCode?.let { qrCode ->
+            Image(
+                bitmap = qrCode.asImageBitmap(),
+                contentDescription = "Generated QR code",
+                modifier = Modifier
+                    .padding(top = 16.dp)
+                    .size(256.dp)
+            )
+        }
+        generationError?.let { errorMessage ->
             Text(
                 text = errorMessage,
                 modifier = Modifier.padding(top = 16.dp)
